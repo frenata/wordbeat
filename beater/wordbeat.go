@@ -78,6 +78,9 @@ func (bt *Wordbeat) listDir(dirFile string) {
 
 			fulltext := extractText(path)
 			lines := strings.Split(fulltext, "\n")
+			if len(lines) < 2 || !strings.Contains(lines[1], "Daily Lesson Plan") {
+				continue
+			}
 
 			event := common.MapStr{
 				"@timestamp":           common.Time(time.Now()),
@@ -136,8 +139,18 @@ func extractESLR(lines []string) []string {
 		} else if line == "Biblical Integration:" {
 			break
 		} else if capture && line != "" {
+			//fmt.Println(line)
 			clean := strings.TrimLeft(line, "0123456789. ")
-			eslrs = append(eslrs, clean)
+			clean = strings.TrimSpace(clean)
+			clean = strings.TrimSuffix(clean, ":")
+			clean = strings.TrimSuffix(clean, " (all)")
+			clean = strings.TrimSuffix(clean, " who")
+			clean = strings.TrimSpace(clean)
+			/*if strings.HasSuffix(clean, "who") {
+				fmt.Println("not clean: " + clean)
+			}*/
+			//fmt.Println("eslr: " + clean)
+			eslrs = append(eslrs, strings.ToLower(clean))
 		}
 	}
 
@@ -177,7 +190,7 @@ func extractBiblicalIntegration(lines []string) []string {
 	for _, line := range lines {
 		if line == "Biblical Integration:" {
 			capture = true
-		} else if strings.HasPrefix(line, "Unit Objectives") {
+		} else if strings.HasPrefix(line, "Unit Objectives") || strings.HasPrefix(line, "Outcomes") {
 			break
 		} else if capture && line != "" {
 			values = append(values, line)
