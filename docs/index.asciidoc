@@ -1,0 +1,5 @@
+= Wordbeat Docs
+
+Welcome to the Wordbeat documentation.
+
+
