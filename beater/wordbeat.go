@@ -3,7 +3,11 @@ package beater
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -69,15 +73,18 @@ func (bt *Wordbeat) listDir(dirFile string) {
 		t := f.ModTime()
 		path := filepath.Join(dirFile, f.Name())
 
-		if t.After(bt.lastIndexTime) {
+		if !f.IsDir() &&
+			strings.HasSuffix(path, ".docx") &&
+			t.After(bt.lastIndexTime) {
 			event := common.MapStr{
 				"@timestamp": common.Time(time.Now()),
 				"type":       "wordbeat",
 				"modtime":    common.Time(t),
 				"filename":   f.Name(),
-				"path":       path,
-				"directory":  f.IsDir(),
-				"filesize":   f.Size(),
+				"text":       getText(path),
+				//"path":       path,
+				//"directory":  f.IsDir(),
+				//"filesize":   f.Size(),
 			}
 			bt.client.PublishEvent(event)
 		}
@@ -86,4 +93,41 @@ func (bt *Wordbeat) listDir(dirFile string) {
 			bt.listDir(path)
 		}
 	}
+}
+
+func getText(path string) string {
+	//unzip -p document.docx word/document.xml | sed -e 's/<\/w:p>/\n/g; s/<[^>]\{1,\}>//g; s/[^[:print:]\n]\{1,\}//g'
+
+	unzipArgs := []string{"-p", path, "word/document.xml"}
+
+	sedCmd := "s/<\\/w:p>/\\n/g; s/<[^>]\\{1,\\}>//g; s/[^[:print:]\\n]\\{1,\\}//g"
+
+	unzipOut, err := exec.Command("unzip", unzipArgs...).Output()
+	if err != nil {
+		panic(err)
+	}
+
+	tmpfile, err := ioutil.TempFile("", "wordbeat")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name()) // clean up
+
+	if _, err := tmpfile.Write(unzipOut); err != nil {
+		log.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	sedArgs := []string{"-e", sedCmd, tmpfile.Name()}
+	fmt.Println(sedArgs)
+	sedOut, err := exec.Command("sed", sedArgs...).Output()
+	if err != nil {
+		fmt.Println(sedOut)
+		fmt.Println(err)
+		panic(err)
+	}
+
+	return string(sedOut)
 }
