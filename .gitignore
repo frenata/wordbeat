@@ -5,3 +5,7 @@
 /wordbeat
 /wordbeat.test
 *.pyc
+
+data/
+logs/
+

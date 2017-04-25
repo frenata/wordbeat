@@ -4,7 +4,11 @@
 
 wordbeat:
   # Defines how often an event is sent to the output
-  period: 1s
+  period: 10s
+  path: "."
+  # if scan_all is true, beat will scan all files
+  # if false, will ignore files modified before execution
+  scan_all: true
 
 #================================ General ======================================
 

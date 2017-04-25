@@ -2,6 +2,8 @@ package beater
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -13,9 +15,10 @@ import (
 )
 
 type Wordbeat struct {
-	done   chan struct{}
-	config config.Config
-	client publisher.Client
+	done          chan struct{}
+	config        config.Config
+	client        publisher.Client
+	lastIndexTime time.Time
 }
 
 // Creates beater
@@ -37,26 +40,50 @@ func (bt *Wordbeat) Run(b *beat.Beat) error {
 
 	bt.client = b.Publisher.Connect()
 	ticker := time.NewTicker(bt.config.Period)
-	counter := 1
+	if !bt.config.ScanAll {
+		bt.lastIndexTime = time.Now()
+	}
+
 	for {
+		now := time.Now()
+		bt.listDir(bt.config.Path)
+		bt.lastIndexTime = now
+
+		logp.Info("Event sent")
 		select {
 		case <-bt.done:
 			return nil
 		case <-ticker.C:
 		}
-
-		event := common.MapStr{
-			"@timestamp": common.Time(time.Now()),
-			"type":       b.Info.Name,
-			"counter":    counter,
-		}
-		bt.client.PublishEvent(event)
-		logp.Info("Event sent")
-		counter++
 	}
 }
 
 func (bt *Wordbeat) Stop() {
 	bt.client.Close()
 	close(bt.done)
+}
+
+func (bt *Wordbeat) listDir(dirFile string) {
+	files, _ := ioutil.ReadDir(dirFile)
+	for _, f := range files {
+		t := f.ModTime()
+		path := filepath.Join(dirFile, f.Name())
+
+		if t.After(bt.lastIndexTime) {
+			event := common.MapStr{
+				"@timestamp": common.Time(time.Now()),
+				"type":       "wordbeat",
+				"modtime":    common.Time(t),
+				"filename":   f.Name(),
+				"path":       path,
+				"directory":  f.IsDir(),
+				"filesize":   f.Size(),
+			}
+			bt.client.PublishEvent(event)
+		}
+
+		if f.IsDir() {
+			bt.listDir(path)
+		}
+	}
 }

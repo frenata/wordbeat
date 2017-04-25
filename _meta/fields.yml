@@ -7,3 +7,14 @@
       required: true
       description: >
         PLEASE UPDATE DOCUMENTATION
+    # Wordbeat fields
+    - name: modtime
+      type: date
+    - name: filename
+      type: text
+    - name: path
+      type: text
+    - name: directory
+      type: boolean
+    - name: filesize
+      type: long
