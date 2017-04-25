@@ -1,10 +1,9 @@
 package beater
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -76,15 +75,22 @@ func (bt *Wordbeat) listDir(dirFile string) {
 		if !f.IsDir() &&
 			strings.HasSuffix(path, ".docx") &&
 			t.After(bt.lastIndexTime) {
+
+			fulltext := extractText(path)
+			lines := strings.Split(fulltext, "\n")
+
 			event := common.MapStr{
-				"@timestamp": common.Time(time.Now()),
-				"type":       "wordbeat",
-				"modtime":    common.Time(t),
-				"filename":   f.Name(),
-				"text":       getText(path),
-				//"path":       path,
-				//"directory":  f.IsDir(),
-				//"filesize":   f.Size(),
+				"@timestamp":           common.Time(time.Now()),
+				"type":                 "wordbeat",
+				"modtime":              common.Time(t),
+				"filename":             f.Name(),
+				"fulltext":             fulltext,
+				"eslr":                 extractESLR(lines),
+				"essential_questions":  extractEssentialQuestions(lines),
+				"teacher":              extractTeacher(lines),
+				"biblical_integration": extractBiblicalIntegration(lines),
+				"unit_objectives":      extractUnitObjectives(lines),
+				"lesson_objectives":    extractLessonObjectives(lines),
 			}
 			bt.client.PublishEvent(event)
 		}
@@ -95,39 +101,123 @@ func (bt *Wordbeat) listDir(dirFile string) {
 	}
 }
 
-func getText(path string) string {
+func extractText(path string) string {
 	//unzip -p document.docx word/document.xml | sed -e 's/<\/w:p>/\n/g; s/<[^>]\{1,\}>//g; s/[^[:print:]\n]\{1,\}//g'
 
 	unzipArgs := []string{"-p", path, "word/document.xml"}
+	unzip := exec.Command("unzip", unzipArgs...)
 
 	sedCmd := "s/<\\/w:p>/\\n/g; s/<[^>]\\{1,\\}>//g; s/[^[:print:]\\n]\\{1,\\}//g"
+	sedArgs := []string{"-e", sedCmd}
+	sed := exec.Command("sed", sedArgs...)
 
-	unzipOut, err := exec.Command("unzip", unzipArgs...).Output()
+	var buff bytes.Buffer
+	var err error
+	sed.Stdin, err = unzip.StdoutPipe()
+	sed.Stdout = &buff
+	err = sed.Start()
+	err = unzip.Run()
+	err = sed.Wait()
 	if err != nil {
 		panic(err)
 	}
 
-	tmpfile, err := ioutil.TempFile("", "wordbeat")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name()) // clean up
+	//fmt.Println(buff)
+	return buff.String()
+}
 
-	if _, err := tmpfile.Write(unzipOut); err != nil {
-		log.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		log.Fatal(err)
-	}
+func extractESLR(lines []string) []string {
+	eslrs := make([]string, 0)
 
-	sedArgs := []string{"-e", sedCmd, tmpfile.Name()}
-	fmt.Println(sedArgs)
-	sedOut, err := exec.Command("sed", sedArgs...).Output()
-	if err != nil {
-		fmt.Println(sedOut)
-		fmt.Println(err)
-		panic(err)
+	capture := false
+	for _, line := range lines {
+		if line == "ESLRs:" {
+			capture = true
+		} else if line == "Biblical Integration:" {
+			break
+		} else if capture && line != "" {
+			clean := strings.TrimLeft(line, "0123456789. ")
+			eslrs = append(eslrs, clean)
+		}
 	}
 
-	return string(sedOut)
+	return eslrs
+}
+
+func extractEssentialQuestions(lines []string) []string {
+	questions := make([]string, 0)
+
+	capture := false
+	for _, line := range lines {
+		if line == "Essential Questions:" {
+			capture = true
+		} else if line == "ESLRs:" {
+			break
+		} else if capture && line != "" {
+			questions = append(questions, line)
+		}
+	}
+
+	return questions
+}
+
+func extractTeacher(lines []string) string {
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Teacher/Year level/Course:") {
+			return strings.Split(strings.TrimPrefix(line, "Teacher/Year level/Course:"), "/")[0]
+		}
+	}
+	return ""
+}
+
+func extractBiblicalIntegration(lines []string) []string {
+	values := make([]string, 0)
+
+	capture := false
+	for _, line := range lines {
+		if line == "Biblical Integration:" {
+			capture = true
+		} else if strings.HasPrefix(line, "Unit Objectives") {
+			break
+		} else if capture && line != "" {
+			values = append(values, line)
+		}
+	}
+
+	return values
+}
+
+func extractUnitObjectives(lines []string) []string {
+	values := make([]string, 0)
+
+	capture := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Unit Objectives") {
+			capture = true
+		} else if strings.HasPrefix(line, "Lesson Objectives") {
+			break
+		} else if capture && line != "" {
+			clean := strings.TrimLeft(line, "0123456789. ")
+			values = append(values, clean)
+		}
+	}
+
+	return values
+}
+
+func extractLessonObjectives(lines []string) []string {
+	values := make([]string, 0)
+
+	capture := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Lesson Objectives") {
+			capture = true
+		} else if strings.HasPrefix(line, "Time allocated") {
+			break
+		} else if capture && line != "" {
+			values = append(values, line)
+		}
+	}
+
+	return values
 }
