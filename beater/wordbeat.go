@@ -83,8 +83,7 @@ func (bt *Wordbeat) listDir(dirFile string) {
 			}
 
 			teachers := extractTeacher(lines)
-			fmt.Println(path)
-			fmt.Println(teachers)
+			eslrs := extractESLR(lines)
 
 			event := common.MapStr{
 				"@timestamp": common.Time(time.Now()),
@@ -92,7 +91,8 @@ func (bt *Wordbeat) listDir(dirFile string) {
 				"modtime":    common.Time(t),
 				"filename":   f.Name(),
 				"fulltext":   fulltext,
-				"eslr":       extractESLR(lines),
+				"eslr":       eslrs,
+				"eslr_num":   len(eslrs),
 				"teacher":    teachers,
 			}
 			bt.client.PublishEvent(event)
