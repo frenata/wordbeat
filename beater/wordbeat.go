@@ -76,24 +76,24 @@ func (bt *Wordbeat) listDir(dirFile string) {
 			strings.HasSuffix(path, ".docx") &&
 			t.After(bt.lastIndexTime) {
 
-			fulltext := extractText(path)
+			fulltext := strings.ToLower(extractText(path))
 			lines := strings.Split(fulltext, "\n")
-			if len(lines) < 2 || !strings.Contains(lines[1], "Daily Lesson Plan") {
+			if len(lines) < 2 || !strings.Contains(lines[1], "daily lesson plan") {
 				continue
 			}
 
+			teachers := extractTeacher(lines)
+			fmt.Println(path)
+			fmt.Println(teachers)
+
 			event := common.MapStr{
-				"@timestamp":           common.Time(time.Now()),
-				"type":                 "wordbeat",
-				"modtime":              common.Time(t),
-				"filename":             f.Name(),
-				"fulltext":             fulltext,
-				"eslr":                 extractESLR(lines),
-				"essential_questions":  extractEssentialQuestions(lines),
-				"teacher":              extractTeacher(lines),
-				"biblical_integration": extractBiblicalIntegration(lines),
-				"unit_objectives":      extractUnitObjectives(lines),
-				"lesson_objectives":    extractLessonObjectives(lines),
+				"@timestamp": common.Time(time.Now()),
+				"type":       "wordbeat",
+				"modtime":    common.Time(t),
+				"filename":   f.Name(),
+				"fulltext":   fulltext,
+				"eslr":       extractESLR(lines),
+				"teacher":    teachers,
 			}
 			bt.client.PublishEvent(event)
 		}
@@ -125,7 +125,6 @@ func extractText(path string) string {
 		panic(err)
 	}
 
-	//fmt.Println(buff)
 	return buff.String()
 }
 
@@ -134,101 +133,57 @@ func extractESLR(lines []string) []string {
 
 	capture := false
 	for _, line := range lines {
-		if line == "ESLRs:" {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "eslrs:") {
+			line = strings.TrimPrefix(line, "eslrs:")
+
+			sep := ";"
+			if !strings.Contains(line, ";") && strings.Contains(line, ".") {
+				sep = "."
+			}
+
+			e := strings.Split(line, sep)
+			for _, l := range e {
+				if strings.TrimSpace(l) != "" {
+					eslrs = append(eslrs, cleanESLR(l))
+				}
+			}
 			capture = true
-		} else if line == "Biblical Integration:" {
+		} else if strings.HasPrefix(line, "biblical integration:") {
 			break
 		} else if capture && line != "" {
-			//fmt.Println(line)
-			clean := strings.TrimLeft(line, "0123456789. ")
-			clean = strings.TrimSpace(clean)
-			clean = strings.TrimSuffix(clean, ":")
-			clean = strings.TrimSuffix(clean, " (all)")
-			clean = strings.TrimSuffix(clean, " who")
-			clean = strings.TrimSpace(clean)
-			/*if strings.HasSuffix(clean, "who") {
-				fmt.Println("not clean: " + clean)
-			}*/
-			//fmt.Println("eslr: " + clean)
-			eslrs = append(eslrs, strings.ToLower(clean))
+			eslrs = append(eslrs, cleanESLR(line))
 		}
 	}
 
 	return eslrs
 }
 
-func extractEssentialQuestions(lines []string) []string {
-	questions := make([]string, 0)
-
-	capture := false
-	for _, line := range lines {
-		if line == "Essential Questions:" {
-			capture = true
-		} else if line == "ESLRs:" {
-			break
-		} else if capture && line != "" {
-			questions = append(questions, line)
-		}
-	}
-
-	return questions
+func cleanESLR(eslr string) string {
+	clean := strings.Trim(eslr, "0123456789.,;: ")
+	clean = strings.TrimSpace(clean)
+	clean = strings.TrimSuffix(clean, "(all)")
+	clean = strings.TrimSpace(clean)
+	clean = strings.TrimSuffix(clean, "who")
+	clean = strings.TrimSpace(clean)
+	return clean
 }
 
-func extractTeacher(lines []string) string {
-	for _, line := range lines {
-		if strings.HasPrefix(line, "Teacher/Year level/Course:") {
-			return strings.Split(strings.TrimPrefix(line, "Teacher/Year level/Course:"), "/")[0]
-		}
-	}
-	return ""
-}
-
-func extractBiblicalIntegration(lines []string) []string {
+func extractTeacher(lines []string) []string {
 	values := make([]string, 0)
 
-	capture := false
 	for _, line := range lines {
-		if line == "Biblical Integration:" {
-			capture = true
-		} else if strings.HasPrefix(line, "Unit Objectives") || strings.HasPrefix(line, "Outcomes") {
-			break
-		} else if capture && line != "" {
-			values = append(values, line)
-		}
-	}
-
-	return values
-}
-
-func extractUnitObjectives(lines []string) []string {
-	values := make([]string, 0)
-
-	capture := false
-	for _, line := range lines {
-		if strings.HasPrefix(line, "Unit Objectives") {
-			capture = true
-		} else if strings.HasPrefix(line, "Lesson Objectives") {
-			break
-		} else if capture && line != "" {
-			clean := strings.TrimLeft(line, "0123456789. ")
-			values = append(values, clean)
-		}
-	}
-
-	return values
-}
-
-func extractLessonObjectives(lines []string) []string {
-	values := make([]string, 0)
-
-	capture := false
-	for _, line := range lines {
-		if strings.HasPrefix(line, "Lesson Objectives") {
-			capture = true
-		} else if strings.HasPrefix(line, "Time allocated") {
-			break
-		} else if capture && line != "" {
-			values = append(values, line)
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "teacher/year level/course:") {
+			teacherline := strings.Split(strings.TrimPrefix(line, "teacher/year level/course:"), "/")[0]
+			teachers := strings.Split(strings.TrimSpace(teacherline), "&amp;")
+			fmt.Println(teachers, len(teachers))
+			for _, teacher := range teachers {
+				clean := strings.Split(teacher, "-")[0]
+				clean = strings.Split(clean, ",")[0]
+				values = append(values, strings.TrimSpace(clean))
+			}
+			return values
 		}
 	}
 
