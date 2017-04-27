@@ -165,12 +165,46 @@ None
 
 
 [float]
-=== counter
+=== modtime
 
-type: long
+type: date
 
-required: True
+When the file was last modified.
 
-PLEASE UPDATE DOCUMENTATION
+
+[float]
+=== filename
+
+type: text
+
+Full path name of the lesson plan.
+
+
+[float]
+=== fulltext
+
+type: text
+
+The full text of the lesson plan.
+
+
+[float]
+=== eslr
+
+The list of ESLRs for the lesson plan
+
+
+[float]
+=== eslr_num
+
+type: integer
+
+How many ESLRs were associated with the lesson plan
+
+
+[float]
+=== teacher
+
+The list of teachers for the lesson plan
 
 
