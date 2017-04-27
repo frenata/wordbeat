@@ -82,6 +82,7 @@ func (bt *Wordbeat) listDir(dirFile string) {
 				continue
 			}
 
+			filename := strings.TrimPrefix(path, bt.config.Path)
 			teachers := extractTeacher(lines)
 			eslrs := extractESLR(lines)
 
@@ -89,7 +90,7 @@ func (bt *Wordbeat) listDir(dirFile string) {
 				"@timestamp": common.Time(time.Now()),
 				"type":       "wordbeat",
 				"modtime":    common.Time(t),
-				"filename":   f.Name(),
+				"filename":   filename,
 				"fulltext":   fulltext,
 				"eslr":       eslrs,
 				"eslr_num":   len(eslrs),

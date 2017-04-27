@@ -2,19 +2,31 @@
   title: wordbeat
   description:
   fields:
-    - name: counter
-      type: long
-      required: true
-      description: >
-        PLEASE UPDATE DOCUMENTATION
     # Wordbeat fields
     - name: modtime
       type: date
+      description: >
+          When the file was last modified.
+
     - name: filename
       type: text
-    - name: path
+      description: >
+          Full path name of the lesson plan.
+
+    - name: fulltext
       type: text
-    - name: directory
-      type: boolean
-    - name: filesize
-      type: long
+      description: >
+          The full text of the lesson plan.
+
+    - name: eslr
+      description: >
+          The list of ESLRs for the lesson plan
+
+    - name: eslr_num
+      type: integer
+      description: >
+          How many ESLRs were associated with the lesson plan
+
+    - name: teacher
+      description: >
+          The list of teachers for the lesson plan

@@ -1,0 +1,16 @@
+{
+	"description": "Remap filepath to _id",
+	"processors": [
+		{
+			"remove" : {
+				"field": "_id"
+			}
+		},
+		{
+			"rename" : {
+				"field": "filename",
+				"target_field": "_id"
+			}
+		}
+	]
+}
