@@ -1,3 +1,4 @@
+*.swp
 /.idea
 /build
 
@@ -8,4 +9,8 @@
 
 data/
 logs/
-
+_meta/kibana
+_meta/fields.generated.yml
+fields.yml
+wordbeat.full.yml
+wordbeat.yml
