@@ -161,7 +161,7 @@ func extractESLR(lines []string) []string {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "eslrs") || strings.HasPrefix(line, "eslr’s") {
 			line = strings.TrimPrefix(line, "eslrs")
-			line = strings.TrimPrefix(line, "eslr’s")
+			line = strings.TrimPrefix(line, "eslr’s") // tom!
 
 			sep := ";"
 			if !strings.Contains(line, ";") && strings.Contains(line, ".") {
@@ -192,6 +192,7 @@ func cleanESLR(eslr string) string {
 	clean = strings.TrimSpace(clean)
 	clean = strings.TrimSuffix(clean, "who")
 	clean = strings.TrimSpace(clean)
+	clean = strings.Replace(clean, "jesus christ", "christ", 1) // saskia!
 	return clean
 }
 
