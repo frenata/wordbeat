@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,33 +77,47 @@ func (bt *Wordbeat) listDir(dirFile string) {
 			strings.HasSuffix(path, ".docx") &&
 			t.After(bt.lastIndexTime) {
 
-			fulltext := strings.ToLower(extractText(path))
-			lines := strings.Split(fulltext, "\n")
-			if len(lines) < 5 || !isDailyPlan(lines[:5]) {
-				continue
-			}
-
 			filename := strings.TrimPrefix(path, bt.config.Path)
-			teachers := extractTeacher(lines)
-			eslrs := extractESLR(lines)
+			fulltext := strings.ToLower(extractText(path))
 
-			event := common.MapStr{
-				"@timestamp": common.Time(time.Now()),
-				"type":       "wordbeat",
-				"modtime":    common.Time(t),
-				"filename":   filename,
-				"fulltext":   fulltext,
-				"eslr":       eslrs,
-				"eslr_num":   len(eslrs),
-				"teacher":    teachers,
+			plans := strings.Split(fulltext, "daily lesson plan")
+			for i := 1; i < len(plans); i++ {
+				if i > 1 {
+					filename = filename + strconv.Itoa(i)
+				}
+				event, err := parseLessonPlan(plans[i], filename, t)
+				if err == nil {
+					bt.client.PublishEvent(event)
+				}
 			}
-			bt.client.PublishEvent(event)
-		}
 
+		}
 		if f.IsDir() {
 			bt.listDir(path)
 		}
 	}
+}
+
+func parseLessonPlan(fulltext, filename string, modTime time.Time) (common.MapStr, error) {
+	lines := strings.Split(fulltext, "\n")
+	/*if len(lines) < 5 || !isDailyPlan(lines[:5]) {
+		return nil, errors.New("not a daily plan")
+	}*/
+
+	teachers := extractTeacher(lines)
+	eslrs := extractESLR(lines)
+
+	event := common.MapStr{
+		"@timestamp": common.Time(time.Now()),
+		"type":       "wordbeat",
+		"modtime":    common.Time(modTime),
+		"filename":   filename,
+		"fulltext":   fulltext,
+		"eslr":       eslrs,
+		"eslr_num":   len(eslrs),
+		"teacher":    teachers,
+	}
+	return event, nil
 }
 
 func isDailyPlan(lines []string) bool {
@@ -154,14 +169,14 @@ func extractESLR(lines []string) []string {
 
 			e := strings.Split(line, sep)
 			for _, l := range e {
-				if strings.TrimSpace(l) != "" {
+				if cleanESLR(l) != "" {
 					eslrs = append(eslrs, cleanESLR(l))
 				}
 			}
 			capture = true
 		} else if strings.HasPrefix(line, "biblical integration") {
 			break
-		} else if capture && line != "" {
+		} else if capture && cleanESLR(line) != "" {
 			eslrs = append(eslrs, cleanESLR(line))
 		}
 	}
