@@ -78,7 +78,7 @@ func (bt *Wordbeat) listDir(dirFile string) {
 
 			fulltext := strings.ToLower(extractText(path))
 			lines := strings.Split(fulltext, "\n")
-			if len(lines) < 2 || !strings.Contains(lines[1], "daily lesson plan") {
+			if len(lines) < 5 || !isDailyPlan(lines[:5]) {
 				continue
 			}
 
@@ -103,6 +103,15 @@ func (bt *Wordbeat) listDir(dirFile string) {
 			bt.listDir(path)
 		}
 	}
+}
+
+func isDailyPlan(lines []string) bool {
+	for _, line := range lines {
+		if strings.Contains(line, "daily lesson plan") {
+			return true
+		}
+	}
+	return false
 }
 
 func extractText(path string) string {
@@ -135,8 +144,8 @@ func extractESLR(lines []string) []string {
 	capture := false
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "eslrs:") {
-			line = strings.TrimPrefix(line, "eslrs:")
+		if strings.HasPrefix(line, "eslrs") {
+			line = strings.TrimPrefix(line, "eslrs")
 
 			sep := ";"
 			if !strings.Contains(line, ";") && strings.Contains(line, ".") {
@@ -150,7 +159,7 @@ func extractESLR(lines []string) []string {
 				}
 			}
 			capture = true
-		} else if strings.HasPrefix(line, "biblical integration:") {
+		} else if strings.HasPrefix(line, "biblical integration") {
 			break
 		} else if capture && line != "" {
 			eslrs = append(eslrs, cleanESLR(line))
@@ -177,7 +186,13 @@ func extractTeacher(lines []string) []string {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "teacher/year level/course:") {
 			teacherline := strings.Split(strings.TrimPrefix(line, "teacher/year level/course:"), "/")[0]
-			teachers := strings.Split(strings.TrimSpace(teacherline), "&amp;")
+
+			sep := "&amp;"
+			if !strings.Contains(teacherline, sep) {
+				sep = " and "
+			}
+
+			teachers := strings.Split(strings.TrimSpace(teacherline), sep)
 			fmt.Println(teachers, len(teachers))
 			for _, teacher := range teachers {
 				clean := strings.Split(teacher, "-")[0]
