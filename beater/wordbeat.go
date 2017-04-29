@@ -159,8 +159,9 @@ func extractESLR(lines []string) []string {
 	capture := false
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "eslrs") {
+		if strings.HasPrefix(line, "eslrs") || strings.HasPrefix(line, "eslr’s") {
 			line = strings.TrimPrefix(line, "eslrs")
+			line = strings.TrimPrefix(line, "eslr’s")
 
 			sep := ";"
 			if !strings.Contains(line, ";") && strings.Contains(line, ".") {
