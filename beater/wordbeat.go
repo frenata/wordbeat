@@ -67,6 +67,7 @@ func (bt *Wordbeat) Stop() {
 	close(bt.done)
 }
 
+// Recursively walk the directory structure and parse all Lesson Plan files.
 func (bt *Wordbeat) listDir(dirFile string) {
 	files, _ := ioutil.ReadDir(dirFile)
 	for _, f := range files {
@@ -98,11 +99,9 @@ func (bt *Wordbeat) listDir(dirFile string) {
 	}
 }
 
+// Parse a Lesson Plan file, which may have multiple daily lesson plan sections in it.
 func parseLessonPlan(fulltext, filename string, modTime time.Time) (common.MapStr, error) {
 	lines := strings.Split(fulltext, "\n")
-	/*if len(lines) < 5 || !isDailyPlan(lines[:5]) {
-		return nil, errors.New("not a daily plan")
-	}*/
 
 	teachers := extractTeacher(lines)
 	eslrs := extractESLR(lines)
@@ -120,6 +119,7 @@ func parseLessonPlan(fulltext, filename string, modTime time.Time) (common.MapSt
 	return event, nil
 }
 
+// Check a portion of a file to verify if it is a Daily Lesson Plan
 func isDailyPlan(lines []string) bool {
 	for _, line := range lines {
 		if strings.Contains(line, "daily lesson plan") {
